@@ -1,0 +1,29 @@
+/**
+ *  Android Request Permissions
+ *      cordova plugin add cordova-plugin-android-permissions --save
+ *      https://github.com/NeoLSN/cordova-plugin-android-permissions
+ *
+ *  Permission Names
+ *      https://developer.android.com/reference/android/Manifest.permission
+ */
+import {TCordovaPlugin} from './Abstract.Plugin';
+
+export class AndroidPermission extends TCordovaPlugin
+{
+    static readonly Name: string = 'permissions';
+    static readonly Repository: string = 'cordova-plugin-android-permissions';
+
+    static Has(permission: string): Promise<boolean>
+    {
+        return this.CallbackToPromise<any>('hasPermission')
+            .then(status => status.hasPermission)
+            .catch(err => Promise.resolve(false));
+    }
+
+    static Request(permission: string): Promise<boolean>
+    {
+        return this.CallbackToPromise<any>('requestPermission')
+            .then(status => status.hasPermission)
+            .catch(err => Promise.resolve(false));
+    }
+}

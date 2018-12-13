@@ -1,0 +1,32 @@
+/*
+ * Native Phone Call Trapper support
+ *      cordova plugin add cordova.plugins.market --save
+ */
+import {TypeInfo} from '../Core/TypeInfo';
+import {EAbort} from '../Core/Exception';
+
+export enum TPhoneCallState
+{
+    RINGING,
+    OFFHOOK, // user have connect the call
+    IDLE
+}
+
+export class TMarket
+{
+    static async Open(AppId: string): Promise<void>
+    {
+        if (! TypeInfo.Assigned((window as any).cordova.plugins.market))
+        {
+            console.error('Market Plugin not Installed.');
+            throw new EAbort();
+        }
+
+        return new Promise<void>((resolve, reject) =>
+        {
+            ((window as any).cordova.plugins.market).open(AppId,
+                () => resolve(),
+                () => reject());
+        });
+    }
+}

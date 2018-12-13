@@ -1,0 +1,43 @@
+/**
+ *  Native PowerManagement support
+ *      .Cordova PowerManagement plugin
+ *          cordova plugin add cordova-plugin-powermanagement --save
+ *          https://github.com/cranberrygame/cordova-plugin-powermanagement
+ */
+import {TypeInfo} from '../Core/TypeInfo';
+
+declare var window: any;
+
+export class PowerManagement
+{
+    static Acquire(Timeout: number = 0): void
+    {
+        if (! TypeInfo.Assigned(window.powermanagement))
+        {
+            console.error('PowerManagement plugin not installed.');
+            return;
+        }
+        else
+        {
+            window.powermanagement.acquire();
+            console.log('PowerManagement Acquired');
+        }
+
+        if (Timeout > 0)
+            setTimeout(() => this.Release(), Timeout);
+    }
+
+    static Release(): void
+    {
+        if (! TypeInfo.Assigned(window.powermanagement))
+        {
+            console.error('PowerManagement plugin not installed.');
+            return;
+        }
+        else
+        {
+            window.powermanagement.release();
+            console.log('PowerManagement Released');
+        }
+    }
+}

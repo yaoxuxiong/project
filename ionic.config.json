@@ -1,0 +1,7 @@
+{
+  "name": "bbmon",
+  "integrations": {
+    "cordova": {}
+  },
+  "type": "ionic-angular"
+}

@@ -1,0 +1,10 @@
+{
+    "API_ENDPOINT": "https://ultracreation.net/",
+
+    "IoT": {
+        "Addr": "ws:us.ultracreation.net:18844",
+        "AutoConnect": false,
+        "UserName": "ultracreation",
+        "Password": "Dasboot12!@12"
+    }
+}

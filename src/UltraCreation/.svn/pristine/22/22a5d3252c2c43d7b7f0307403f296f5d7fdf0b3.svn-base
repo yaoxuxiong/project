@@ -1,0 +1,26 @@
+/*
+ * Native Phone Call Trapper support
+ *      cordova plugin add cordova-plugins-market --save
+ */
+import {TypeInfo} from '../Core/TypeInfo';
+import {EAbort} from '../Core/Exception';
+
+export class AppMarket
+{
+    static Open(AppId: string): Promise<void>
+    {
+        if (TypeInfo.Assigned((window as any).cordova) &&
+            TypeInfo.Assigned((window as any).cordova.plugins) &&
+            TypeInfo.Assigned((window as any).cordova.plugins.market))
+        {
+            return new Promise<void>((resolve, reject) =>
+            {
+                ((window as any).cordova.plugins.market).open(AppId,
+                    () => resolve(),
+                    () => reject());
+            });
+        }
+        else
+            return Promise.reject(new EAbort());
+    }
+}

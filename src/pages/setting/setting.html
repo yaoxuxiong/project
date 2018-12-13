@@ -1,0 +1,59 @@
+<ion-header>
+        <ion-toolbar>
+            <ion-row class="header_box">
+                <ion-col (click)="App.Nav.pop()" text-center col-2><ion-icon>&#xe940;</ion-icon></ion-col>
+                <ion-col text-center col-8 f-3-6>{{'setting_page.title'|translate}}</ion-col>
+            </ion-row>
+        </ion-toolbar>
+</ion-header>
+<ion-content class="setting_box">
+    <ion-list>
+        <ion-item style="background:#ddd">
+            UltraCreation Member
+        </ion-item>
+        <ion-item-group>
+            <ng-template [ngIf]="Auth.IsLogin">
+                <ion-item  color="lightblue" (click)="Logout()" tappable>
+                    <ion-note item-right text-light> Logout</ion-note>
+                </ion-item>
+            </ng-template>
+
+            <ng-template [ngIf]="! Auth.IsLogin">
+                <ion-item  color="lightblue" (click)="Register()" tappable>
+                    New user
+                    <ion-note item-right text-light> Create</ion-note>
+                </ion-item>
+                <ion-item color="lightblue" (click)="Login()" tappable>
+                    Already a user?
+                    <ion-note item-right text-light> Login</ion-note>
+                </ion-item>
+            </ng-template>
+        </ion-item-group>
+
+        <ion-item style="background:#ddd">
+            Localize
+            <!-- <ion-icon item-right  style="color:#55A9FF;font-size:1.5rem;min-height:auto;">&#xe928;</ion-icon> -->
+        </ion-item>
+        <ion-item-group>
+            <ion-item>
+                Unit
+                <div class="select_box">
+                    <span class="select_item select_item_left" (click)="UnitDefaults.Temperature=TemperatureUnits[0].Name" [class.active]="UnitDefaults.Temperature==TemperatureUnits[0].Name">{{TemperatureUnits[0].Symbol}}</span><span class="select_item select_item_right" (click)="UnitDefaults.Temperature=TemperatureUnits[1].Name" [class.active]="UnitDefaults.Temperature==TemperatureUnits[1].Name">{{TemperatureUnits[1].Symbol}}</span>
+                </div>
+            </ion-item>
+        </ion-item-group>
+
+        <ion-item style="background:#ddd">
+            Discovery
+        </ion-item>
+        <ion-item-group>
+            <ion-item>
+                <ion-label>Wifi sharing</ion-label>
+                <ion-toggle *ngIf="Auth.IsLogin" [(ngModel)]="Discover.MqttHost"></ion-toggle>
+                <ion-note *ngIf="!Auth.IsLogin" item-right text-light (click)="Login()">Login to use</ion-note>
+            </ion-item>
+
+            <ion-item (click)="UserGuide()">User Guide</ion-item>
+        </ion-item-group>
+    </ion-list>
+</ion-content>

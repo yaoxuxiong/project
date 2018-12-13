@@ -1,0 +1,279 @@
+import {Component, Input, Output, EventEmitter, ElementRef, AfterViewInit, isDevMode} from '@angular/core';
+/**
+ *  to get Swiper
+ *  npm install swiper -S
+ *  npm install @types/swiper -D
+ */
+import 'swiper';
+import {TypeInfo} from '../Core/TypeInfo';
+
+@Component({selector: 'swiper',
+    template: `<div [ngClass]="{'swiper-container': false}">
+        <ng-content></ng-content></div>`,
+    styles: [':host {display: block; height: 100%;}', ':host > div {width: 100%; height: 100%; overflow: hidden}']
+})
+export class SwiperComp implements AfterViewInit
+{
+    constructor(public Ref: ElementRef)
+    {
+    }
+
+    ngAfterViewInit()
+    {
+        this.Wrapper = this.Ref.nativeElement.querySelector('.swiper-wrapper');
+
+        this.Instance = new Swiper(this.Ref.nativeElement.querySelector('swiper > div'), this.Config);
+        this.HookSwiperEvents();
+    }
+
+    /**
+     *  @param Reset
+     *      will SlideTo(0, 0) when true
+     */
+    Update(): Promise<void>;
+    Update(Reset?: true, AnimateSpeed?: number): Promise<void>;
+    Update(Reset?: true, AnimateSpeed?: number): Promise<void>
+    {
+        if (! TypeInfo.Assigned(Reset))
+            Reset = true;
+        const Animate = ! TypeInfo.Assigned(AnimateSpeed) || AnimateSpeed > 0;
+
+        if (! this.Updating)
+        {
+            this.Updating = new Promise<void>((resolve, reject) =>
+            {
+                setTimeout(() =>
+                {
+                    if (Reset)
+                    {
+                        if (Animate)
+                        {
+                            this.Instance.slideNext(false, 0);
+                            this.Instance.update(true);
+                            this.SlideTo(0);
+                        }
+                        else
+                        {
+                            this.Instance.update(true);
+                            this.Instance.slideTo(0, 0);
+                        }
+                    }
+                    else
+                        this.Instance.update(true);
+
+                    if (! this.Initialized)
+                    {
+                        this.Initialized = true;
+                        this.OnSlideChanged.next(this.ActiveIndex);
+                    }
+
+                    this.Updating = undefined;
+                    resolve();
+                });
+            });
+        }
+
+        return this.Updating;
+    }
+
+    get ActiveIndex(): number
+    {
+        if (TypeInfo.Assigned(this.Instance))
+            return this.Instance.activeIndex;
+        else
+            return 0;
+    }
+
+    set ActiveIndex(v: number)
+    {
+        setTimeout(this.SlideTo(v));
+    }
+
+    get SlideCount(): number
+    {
+        if (TypeInfo.Assigned(this.Instance))
+            return this.Instance.slides.length;
+        else
+            return 0;
+    }
+
+    SlideTo(Idx: number, Speed?: number)
+    {
+        setTimeout(() =>
+        {
+            if (TypeInfo.Assigned(this.Instance))
+                this.Instance.slideTo(Idx, Speed);
+        });
+    }
+
+    /**
+     *  @param Speed
+     *      default 300
+     *  @param Slient
+     *      transition will not produce OnSlideChange when true
+     */
+    SlidePrev(Speed?: number, Slient?: boolean)
+    {
+        setTimeout(() =>
+        {
+            if (TypeInfo.Assigned(this.Instance))
+                this.Instance.slidePrev(! Slient, Speed);
+        });
+    }
+
+    /**
+     *  @param Speed
+     *      default 300
+     *  @param Slient
+     *      transition will not produce OnSlideChange when true
+     */
+    SlideNext(Speed?: number, Slient?: boolean)
+    {
+        setTimeout(() =>
+        {
+            if (TypeInfo.Assigned(this.Instance))
+                this.Instance.slideNext(! Slient, Speed);
+        });
+    }
+
+    Instance: Swiper;
+    Wrapper: HTMLElement;
+
+    private Initialized = false;
+    private Updating: Promise<void> | undefined;
+    private TouchStartIdx: number;
+
+    @Input() Config?: SwiperOptions;
+    // onInit(swiper)       function    Callback function, will be executed right after Swiper initialization
+    // onDestroy(swiper)    function    Callback function, will be executed when you destroy Swiper
+    @Output() OnSlideChanged = new EventEmitter<number>();
+
+    /** 300ms delay */
+    @Output() OnClick = new EventEmitter<{Inst: Swiper, ev: TouchEvent}>();
+    /** no delay */
+    @Output() OnTap = new EventEmitter<{Inst: Swiper, ev: TouchEvent}>();
+    @Output() OnDoubleTap = new EventEmitter<{Inst: Swiper, ev: TouchEvent}>();
+
+    @Output() OnImagesReady = new EventEmitter<Swiper>();
+
+    /**  will be executed when Swiper progress is changed, as second arguments it receives progress that is always from 0 to 1 */
+    @Output() OnProgress = new EventEmitter<{Inst: Swiper, Progress: number}>();
+
+    @Output() OnReachBeginning = new EventEmitter<Swiper>();
+    @Output() OnReachEnd = new EventEmitter<Swiper>();
+
+    /** Same as onSlideChangeStart but caused by autoplay */
+    @Output() OnAutoplay = new EventEmitter<Swiper>();
+    @Output() OnAutoplayStart = new EventEmitter<Swiper>();
+    @Output() OnAutoplayStop = new EventEmitter<Swiper>();
+
+    private HookSwiperEvents()
+    {
+        /* all these can not simply use to decide slide changed
+        (this.Instance as any).on('slideChangeStart', (Inst: Swiper) => this.OnSlideChangeStart.next(Inst));
+        (this.Instance as any).on('slideNextStart', (Inst: Swiper) => this.OnSlideNextStart.next(Inst));
+        (this.Instance as any).on('slideNextEnd', (Inst: Swiper) => this.OnSlideNextEnd.next(Inst));
+        (this.Instance as any).on('slidePrevStart', (Inst: Swiper) => this.OnSlidePrevStart.next(Inst));
+        (this.Instance as any).on('slidePrevEnd', (Inst: Swiper) => this.OnSlidePrevEnd.next(Inst));
+        (this.Instance as any).on('transitionStart', (Inst: Swiper) => this.OnTransitionStart.next(Inst));
+        (this.Instance as any).on('transitionEnd', (Inst: Swiper) => this.OnTransitionEnd.next(Inst));
+
+        (this.Instance as any).on('touchStart', (Inst: Swiper, ev: TouchEvent) => this.OnTouchStart.next({Inst: Inst, ev: ev}));
+        (this.Instance as any).on('touchMove', (Inst: Swiper, ev: TouchEvent) => this.OnTouchMove.next({Inst: Inst, ev: ev}));
+        (this.Instance as any).on('touchMoveOpposite', (Inst: Swiper, ev: TouchEvent) => this.OnTouchMoveOpposite.next({Inst: Inst, ev: ev}));
+        (this.Instance as any).on('slidesMove', (Inst: Swiper, ev: TouchEvent) => this.OnSlidesMove.next({Inst: Inst, ev: ev}));
+        (this.Instance as any).on('touchEnd', (Inst: Swiper, ev: TouchEvent) => this.OnTouchEnd.next({Inst: Inst, ev: ev}));
+        */
+        (this.Instance as any).on('touchStart', (Inst: Swiper) =>
+        {
+            this.TouchStartIdx = this.ActiveIndex;
+        });
+
+        (this.Instance as any).on('touchEnd', (Inst: Swiper) =>
+        {
+            if (this.TouchStartIdx !== this.ActiveIndex)
+            {
+                if (isDevMode())
+                    console.log('Swiper OnSlideChanged: touchEnd');
+                this.OnSlideChanged.next(Inst.activeIndex);
+            }
+        });
+
+        (this.Instance as any).on('slideChangeEnd', (Inst: Swiper) =>
+        {
+            if (isDevMode())
+                console.log('Swiper OnSlideChanged: slideChangeEnd');
+            this.OnSlideChanged.next(Inst.activeIndex);
+        });
+
+        (this.Instance as any).on('click', (Inst: Swiper, ev: TouchEvent) =>
+        {
+            if (isDevMode())
+                console.log('Swiper click');
+            this.OnClick.next({Inst: Inst, ev: ev});
+        });
+
+        (this.Instance as any).on('tap', (Inst: Swiper, ev: TouchEvent) =>
+        {
+            if (isDevMode())
+                console.log('Swiper tap');
+            this.OnTap.next({Inst: Inst, ev: ev});
+        });
+
+        (this.Instance as any).on('doubleTap', (Inst: Swiper, ev: TouchEvent) =>
+        {
+            if (isDevMode())
+                console.log('Swiper doubleTap');
+            this.OnDoubleTap.next({Inst: Inst, ev: ev});
+        });
+
+        (this.Instance as any).on('imagesReady', (Inst: Swiper) =>
+        {
+            if (isDevMode())
+                console.log('Swiper imagesReady');
+            this.OnImagesReady.next(Inst);
+        });
+
+        (this.Instance as any).on('progress', (Inst: Swiper, Progress: number) =>
+        {
+            if (isDevMode())
+                console.log('Swiper progress');
+            this.OnProgress.next({Inst: Inst, Progress: Progress});
+        });
+
+        (this.Instance as any).on('reachBeginning', (Inst: Swiper) =>
+        {
+            if (isDevMode())
+                console.log('Swiper reachBeginning');
+            this.OnReachBeginning.next(Inst);
+        });
+
+        (this.Instance as any).on('reachEnd', (Inst: Swiper) =>
+        {
+            if (isDevMode())
+                console.log('Swiper reachEnd');
+            this.OnReachEnd.next(Inst);
+        });
+
+        (this.Instance as any).on('autoplay', (Inst: Swiper) =>
+        {
+            if (isDevMode())
+                console.log('Swiper autoplay');
+            this.OnAutoplay.next(Inst);
+        });
+
+        (this.Instance as any).on('autoplayStart', (Inst: Swiper) =>
+        {
+            if (isDevMode())
+                console.log('Swiper autoplayStart');
+            this.OnAutoplayStart.next(Inst);
+        });
+
+        (this.Instance as any).on('autoplayStop', (Inst: Swiper) =>
+        {
+            if (isDevMode())
+                console.log('Swiper autoplayStop');
+            this.OnAutoplayStop.next(Inst);
+        });
+    }
+}

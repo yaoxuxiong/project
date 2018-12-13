@@ -1,0 +1,333 @@
+import {Injectable, isDevMode} from '@angular/core';
+import {Subject} from 'rxjs/Subject';
+import {Subscription} from 'rxjs/Subscription';
+import {Platform} from 'ionic-angular';
+
+import {TypeInfo} from '../../UltraCreation/Core/TypeInfo';
+import {Exception, EAbort} from '../../UltraCreation/Core/Exception';
+import * as BLE from '../../UltraCreation/Native/BluetoothLE';
+
+import {TUPnPContrlPoint, ESocketPlugin} from '../../UltraCreation/Native/Socket';
+import {TPeripheral, PeripheralFactory, PERIPHERAL_TIMEOUT} from './asset.peripheral';
+import {TBasicAssetService} from './asset.basic';
+
+const DEF_DISCOVER_TIMEOUT = PERIPHERAL_TIMEOUT;
+
+export class EBLENotEnabled extends Exception
+{
+    constructor()
+    {
+        super('open_ble');
+    }
+}
+
+@Injectable()
+export class TDiscoverService
+{
+    private static Singleton: TDiscoverService = undefined;
+
+    constructor(private Platform: Platform)
+    {
+        console.log('TDiscoverService construct');
+
+        if (TypeInfo.Assigned((this.constructor as typeof TDiscoverService).Singleton))
+            console.warn('TDiscoverService is prefer global injection.');
+        else
+            (this.constructor as typeof TDiscoverService).Singleton = this;
+    }
+
+    IsBrowserDebuging(): boolean
+    {
+        return isDevMode() && ! BLE.PluginInstalled();
+    }
+
+    async PrepareBLE(): Promise<void>
+    {
+        if (this.IsBrowserDebuging())
+        {
+            console.warn('develop mode and not BLE plugin installed...is browser debuging?');
+            return;
+        }
+
+        let Enabled = await BLE.IsEnable();
+        if (! Enabled)
+        {
+            if (this.Platform.is('android'))
+            {
+                Enabled = await BLE.Enable();
+                if (! Enabled)
+                    throw new EBLENotEnabled();
+            }
+            else
+                throw new EBLENotEnabled();
+        }
+    }
+
+    async PrepareWifi(): Promise<void>
+    {
+    }
+
+    _DevFakeDevice(Type: string)
+    {
+        const Peripheral = PeripheralFactory.Get('000000000', Type);
+        Peripheral.Name = 'FakeDevice';
+
+        Peripheral.Status.RSSI = -50;
+        Peripheral.Status.BatteryLevel = 2600;
+        Peripheral.LastActivity = new Date().getTime();
+
+        console.log('attach fake device');
+
+        setTimeout(() => this.Discover(Peripheral), 1000);
+        setInterval(() => Peripheral.DevTest(), 1000);
+    }
+
+    ScanId(Id: string): Promise<TPeripheral>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            this.Start(DEF_DISCOVER_TIMEOUT).subscribe(
+                next =>
+                {
+                    if (next.Id === Id)
+                        resolve(next);
+                },
+                err =>
+                    reject(err),
+                () =>
+                    reject(new EAbort())
+            );
+        });
+    }
+
+    Start(ScanTimeout: number = 2 * DEF_DISCOVER_TIMEOUT,
+        DiscoverTimeout: number = DEF_DISCOVER_TIMEOUT): Subject<TPeripheral>
+    {
+        const LocalPnP = PeripheralFactory.GetFromLocalPnP();
+        if (TypeInfo.Assigned(LocalPnP))
+        {
+            console.log('discovered PNP device.');
+            setTimeout(() => this.Discover(LocalPnP));
+        }
+        else
+        {
+            this.ScanTimeout = ScanTimeout;
+            this.DiscoverTimeout = DiscoverTimeout;
+
+            if (! this.Scanning)
+            {
+                this.Scanning = true;
+
+                if (PeripheralFactory.HasBLE)
+                {
+                    this.StartScanBLE();
+                    console.log('Discover from BLE');
+                }
+
+                if (PeripheralFactory.HasUniversalPnP)
+                {
+                    setTimeout(() => this.StartScanNet(), 200);
+                    console.log('Discover from Univeral Plug and Play');
+                }
+
+                console.log('AdNames: ' + PeripheralFactory.AdNames);
+            }
+        }
+
+        return this.OnDiscover;
+    }
+
+    async Stop(): Promise<void>
+    {
+        this.Scanning = false;
+        try
+        {
+            await this.StopScanBLE();
+            await this.StopScanNet();
+        }
+        catch (e)
+        {
+        }
+
+        // todo: empty Peripheral list?
+        // this.PeripheralList = [];
+    }
+
+    /*
+    ManualDiscover(Peripheral: TPeripheral)
+    {
+        Peripheral.Status.RSSI = 0;
+        setTimeout(() => this.Discover(Peripheral));
+    }
+    */
+
+    private StartDiscoverTimeout()
+    {
+        if (TypeInfo.Assigned(this.DiscoverTimeoutId))
+            return;
+        if (this.PeripheralList.length === 0)
+            return;
+
+        this.DiscoverTimeoutId = setTimeout(() => Loop(this), 1000);
+
+        function Loop(Self: TDiscoverService)
+        {
+            const Now = new Date().getTime();
+
+            for (let i = Self.PeripheralList.length - 1; i >= 0; i --)
+            {
+                const Peripheral = Self.PeripheralList[i];
+
+                // manual discovered
+                if (Peripheral.Status.RSSI === 0)
+                    continue;
+
+                if (Now - Peripheral.LastActivity >= Self.DiscoverTimeout)
+                {
+                    const removed = Self.PeripheralList.splice(i, 1)[0];
+                    removed.SignalUpdate(false, undefined);
+
+                    setTimeout(() => Self.OnDiscoverTimeout.next(removed));
+                }
+            }
+
+            if (Self.PeripheralList.length === 0)
+                Self.DiscoverTimeoutId = null;
+            else
+                Self.DiscoverTimeoutId = setTimeout(() => Loop(Self), 1000);
+        }
+    }
+
+    private Discover(Peripheral: TPeripheral)
+    {
+        for (const Iter of this.PeripheralList)
+        {
+            if (Iter.Id === Peripheral.Id || Iter === Peripheral)
+                return;
+        }
+
+        if (! Peripheral.IsObjectSaved)
+            this.Asset.AddPeripheral(Peripheral).catch(err => console.log(err));
+
+        this.PeripheralList.push(Peripheral);
+        this.StartDiscoverTimeout();
+
+        this.OnDiscover.next(Peripheral);
+    }
+
+    private async StartScanBLE(): Promise<void>
+    {
+        await this.Stop();
+        // await this.PrepareBLE().catch(err => this.Scanning = false);
+
+        this.GattScanner = BLE.TGattScaner.Start([], (Device: BLE.IScanDiscovery): boolean =>
+        {
+            if (! TypeInfo.Assigned(Device.name))
+                return false;
+
+            const view = BLE.TGatt.GetManufactoryData(Device.advertising);
+            const Peripheral = PeripheralFactory.GetFromBLE(Device.name, view, Device.id);
+            if (TypeInfo.Assigned(Peripheral))
+            {
+                Peripheral.SignalUpdate(true, Device.rssi);
+                this.Discover(Peripheral);
+            }
+
+            // always false to ignore TGattScanner.DeviceList
+            return false;
+        }, this.ScanTimeout).subscribe(
+            next => {},
+            err => {},
+            () =>
+            {
+                console.log('StartScanBLE.complate');
+
+                if (TypeInfo.Assigned(this.GattScanner))
+                {
+                    this.GattScanner.unsubscribe();
+                    setTimeout(() => this.StartScanBLE());
+                }
+            });
+    }
+
+    private async StopScanBLE(): Promise<void>
+    {
+        if (TypeInfo.Assigned(this.GattScanner))
+            this.GattScanner.unsubscribe();
+        this.GattScanner = null;
+
+        try
+        {
+            await BLE.TGatt.StopScan();
+        }
+        catch (e)
+        {
+        }
+    }
+
+    private async StartScanNet()
+    {
+        await this.StopScanNet();
+
+        if (! TypeInfo.Assigned(this.SsdpSearcher))
+        {
+            this.SsdpSearcher = new TUPnPContrlPoint();
+            this.SsdpSearcher.Init();
+        }
+
+        this.SsdpSubscription = this.SsdpSearcher.OnDeviceFound().subscribe((DeviceInfo) =>
+        {
+            console.log('Found ' + JSON.stringify(DeviceInfo));
+            const Peripheral = PeripheralFactory.GetFromSocket(DeviceInfo.Id, DeviceInfo.Addr, DeviceInfo.Name);
+            if (TypeInfo.Assigned(Peripheral))
+            {
+                Peripheral.SignalUpdate(true, -20);
+                this.Discover(Peripheral);
+            }
+        });
+
+        this.SsdpSearchTimerId = setInterval(() =>
+        {
+            this.SsdpSearcher.SearchDevice().catch((err) =>
+            {
+                if (err instanceof ESocketPlugin)
+                {
+                    console.log('without socket plugin');
+                    this.StopScanNet();
+                }
+            });
+        }, 5000);
+    }
+
+    private async StopScanNet()
+    {
+        if (TypeInfo.Assigned(this.SsdpSearchTimerId))
+        {
+            clearInterval(this.SsdpSearchTimerId);
+            this.SsdpSearchTimerId = null;
+        }
+
+        if (TypeInfo.Assigned(this.SsdpSubscription))
+        {
+            this.SsdpSubscription.unsubscribe();
+            this.SsdpSubscription = null;
+        }
+    }
+
+    PeripheralList: Array<TPeripheral> = [];
+
+    Scanning = false;
+    OnDiscover = new Subject<TPeripheral>();
+    OnDiscoverTimeout = new Subject<TPeripheral>();
+
+    private Asset = new TBasicAssetService();
+
+    private GattScanner: Subscription;
+    private DiscoverTimeout: number;
+    private ScanTimeout: number;
+    private DiscoverTimeoutId: any;
+
+    private SsdpSearcher: TUPnPContrlPoint;
+    private SsdpSubscription: Subscription;
+    private SsdpSearchTimerId: any;
+}

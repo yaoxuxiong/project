@@ -1,0 +1,90 @@
+.login_content{
+    padding: 0 1.5rem;
+    .login_title{
+        color: #333333;
+        font-size: 2rem;
+        font-weight: 600;
+        padding: 1.5rem 0;
+    }
+    .login_inp_box{
+        div{
+            margin-top: 0.8rem;
+            input{
+                width: 100%;
+                background:#F7F7F7;
+                padding: 1.2rem 0.8rem;
+                border-radius: 5px;
+                border: none;
+            }
+        }
+    }
+    .check_box{
+        padding: 1rem 0;
+        .check_box_text{
+            font-size: 1.3rem;
+            color: #F05563;
+            padding-top: 0.7rem;
+        }
+        .check_box_col{
+            label{
+                font-size: 1.3rem;
+                color: #333;
+            }
+        }
+    }
+    .foot_box{
+        width: 100%;
+        margin-top: 0.8rem;
+        p{
+            width: 100%;
+            text-align: center;
+            padding: 1rem 0;
+            color: #333;
+            font-size: 1.3rem;
+            span{
+                color: #F05563;
+            }
+        }
+    }
+    .register_foot_text{
+        padding-top: 1rem;
+        text-align: center;
+        p{
+            padding: 0.5rem 0;
+            color: #333;
+            font-size: 1.3rem;
+        }
+        span{
+            color: #F05563;
+            font-size: 1.3rem;
+        }
+    }
+}
+
+input::-webkit-input-placeholder {/*Chrome/Safari*/
+    color:#ddd;
+}
+input::-moz-placeholder {/*Firefox*/
+    color:#ddd;
+}
+input::-ms-input-placeholder {/*IE*/
+    color:#ddd;
+}
+
+input[type="checkbox"] + label::before {
+    content: "\a0";  /*不换行空格*/
+    display: inline-block;
+    vertical-align: .2em;
+    width: 1em;
+    height: 1em;
+    margin-right: .2em;
+    border-radius: .2em;
+    background-color: #EEF6FF;
+    text-indent: .15em;
+    line-height: .65;  /*行高不加单位，子元素将继承数字乘以自身字体尺寸而非父元素行高*/
+}
+
+input[type="checkbox"]:checked + label::before {
+    content: "\2713";
+    background-color:#55A9FF;
+}

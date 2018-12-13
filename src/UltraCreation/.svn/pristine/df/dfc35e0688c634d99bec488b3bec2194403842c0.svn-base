@@ -1,0 +1,46 @@
+/*
+ * Android Request Permissions
+ *      cordova plugin add cordova-plugin-android-permissions --save
+ */
+import {TypeInfo} from '../Core/TypeInfo';
+
+export class AndroidPermission
+{
+    static Has(permission: string): Promise<boolean>
+    {
+        return new Promise<boolean>((resolve, reject) =>
+        {
+            if (this.IsPluginInstalled())
+                this.Plugin.hasPermission(permission, (status: any) => resolve(status.hasPermission));
+            else
+                resolve(false);
+        });
+    }
+
+    static Request(permission: string): Promise<boolean>
+    {
+        return new Promise<boolean>((resolve, reject) =>
+        {
+            if (this.IsPluginInstalled())
+            {
+                this.Plugin.requestPermission(permission,
+                    (status: any) => resolve(status.hasPermission),
+                    () => resolve(false));
+            }
+            else
+                resolve(false);
+        });
+    }
+
+    private static IsPluginInstalled(): boolean
+    {
+        return (TypeInfo.Assigned((window as any).cordova) &&
+            TypeInfo.Assigned((window as any).cordova.plugins) &&
+            TypeInfo.Assigned((window as any).cordova.plugins.permissions));
+    }
+
+    private static get Plugin(): any
+    {
+        return (window as any).cordova.plugins.permissions;
+    }
+}

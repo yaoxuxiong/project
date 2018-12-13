@@ -1,0 +1,20 @@
+{
+    "android":
+    {
+        "debug": {
+            "keystore": "key.keystore",
+            "storePassword": "sa16!^",
+            "alias": "caremagic",
+            "password" : "sa16!^",
+            "keystoreType": ""
+        },
+        "release":
+        {
+            "keystore": "key.keystore",
+            "storePassword": "sa16!^",
+            "alias": "caremagic",
+            "password" : "sa16!^",
+            "keystoreType": ""
+        }
+    }
+}

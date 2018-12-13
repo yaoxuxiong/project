@@ -1,0 +1,33 @@
+<ion-header>
+    <ion-toolbar>
+        <ion-row class="header_box">
+            <ion-col navPop text-center col-2><ion-icon>&#xe940;</ion-icon></ion-col>
+        </ion-row>
+    </ion-toolbar>
+</ion-header>
+<ion-content>
+    <div class="login_content">
+        <div class="login_title">{{'login_page.title'|translate}}</div>
+        <div class="login_inp_box">
+            <div>
+                <input type="text" placeholder="Email" [(ngModel)]="Email">
+            </div>
+            <div>
+                <input type="password" placeholder="Password" [(ngModel)]="Pwd">
+            </div>
+        </div>
+        <ion-row class="check_box">
+            <ion-col class="check_box_col" col-6>
+                <input style="position: absolute;clip: rect(0, 0, 0, 0);" type="checkbox" id="awesome" checked ='checked' />
+                <label for="awesome">Remember me</label>
+            </ion-col>
+            <ion-col (click)="showPrompt()" class="check_box_text" text-right col-6>Fogot password?</ion-col>
+        </ion-row>
+        <ion-row>
+            <ion-col no-padding><button (click)="Submit()" style="background:#55A9FF;color:#fff; border-radius:5px;" no-padding ion-button full>Login</button></ion-col>
+        </ion-row>
+        <div class="foot_box">
+            <p>Still without account?<span (click)="RegisterPage()"> Create one</span></p>
+        </div>
+    </div>
+</ion-content>

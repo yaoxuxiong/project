@@ -1,0 +1,217 @@
+/**
+ *  Cordova Plugins Abstract
+ *      npm i @types/cordova -D
+ */
+// import 'cordova';
+import {TypeInfo} from '../Core/TypeInfo';
+import {EAbort} from '../Core/Exception';
+
+declare var window: any;
+declare var navigator: any;
+
+export type TSuccessfulCallback = (msg?: any) => void;
+export type TFailureCallback = (msg?: any) => void;
+
+export type TPluginFunction = (...argv: any[]) => void;
+
+export class TCordovaPluginStatic
+{
+    static readonly Name: string = '';
+    static readonly Repository?: string;
+}
+
+export class ECordovaPlugin extends EAbort
+{
+    constructor(msg?: string)
+    {
+        if (TypeInfo.Assigned(msg))
+            super(msg);
+        else
+            super('e_cordova_plugin');
+    }
+}
+
+export class ECordovaPluginNotInstalled extends ECordovaPlugin
+{
+    constructor()
+    {
+        super('e_cordova_plugin_not_installed');
+    }
+}
+
+export class TCordovaPlugin extends TCordovaPluginStatic
+{
+    static get IsPluginInstalled(): boolean
+    {
+        return TypeInfo.Assigned(this.Instance());
+    }
+
+    static Instance<T>(): T
+    {
+        if (this.Name === '')
+        {
+            console.error(this.name.toString() + ' has no Name defined.');
+            return undefined;
+        }
+
+        if (! TypeInfo.Assigned(this._Instance))
+        {
+            this._Instance = this.RequirePlugin(this.Name);
+
+            if (! TypeInfo.Assigned(this._Instance))
+            {
+                if (TypeInfo.Assigned(this.Repository))
+                    console.error(this.Repository + ' is not installed.');
+                else
+                    console.error('cordova plugin: ' + this.Name + ' is not installed.');
+            }
+        }
+
+        return this._Instance;
+    }
+
+    static async InstancePromise<T>(): Promise<T>
+    {
+        const Instance = this.Instance<T>();
+        if (! TypeInfo.Assigned(Instance))
+            throw new ECordovaPluginNotInstalled();
+        else
+            return Instance;
+    }
+
+    static RequirePlugin<T>(PluginName: string): T
+    {
+        if (! TypeInfo.Assigned(window.cordova))
+            return undefined;
+
+        let Plugin = undefined;
+
+        if (TypeInfo.Assigned(window.cordova.plugins))
+            Plugin = window.cordova.plugins[PluginName];
+        if (! TypeInfo.Assigned(Plugin))
+            Plugin = window.cordova[PluginName];
+        if (! TypeInfo.Assigned(Plugin))
+            Plugin = window[PluginName];
+        if (! TypeInfo.Assigned(Plugin))
+            Plugin = navigator[PluginName];
+
+        return Plugin;
+    }
+
+    static GetProperty<T>(propname: string): T
+    {
+        const Instance = this.Instance<any>();
+        if (TypeInfo.Assigned(Instance))
+            return Instance[propname];
+    }
+
+    static CallFunction<T>(func: string, ...argv: any[]): T
+    {
+        const Instance = this.Instance<any>();
+        if (TypeInfo.Assigned(Instance))
+        {
+            const PluginFunction: Function = Instance[func];
+            return PluginFunction.call(this, ...argv);
+        }
+    }
+
+    static async CallbackToPromise<T>(func: string): Promise<T>
+    {
+        const Instance = await this.InstancePromise<any>();
+
+        return new Promise<T>((resolve, reject) =>
+        {
+            const PluginFunction: Function = Instance[func];
+            PluginFunction.call(this, succ, err);
+
+            function succ(msg: any): void
+            {
+                resolve(msg);
+            }
+
+            function err(msg: any): void
+            {
+                if (TypeInfo.IsString(msg))
+                {
+                    console.warn('cordova plugin error: ' + msg);
+                    reject(new ECordovaPlugin(msg));
+                }
+                else if (msg instanceof Error)
+                {
+                    console.warn('cordova plugin error: ' + msg.message + ' error class: ' + typeof msg);
+                    reject(msg);
+                }
+            }
+        });
+    }
+
+    static async CallbackToPromise_RightParam<T>(func: string, ...argv: any[]): Promise<T>
+    {
+        const Instance = await this.InstancePromise<any>();
+
+        return new Promise<T>((resolve, reject) =>
+        {
+            argv = [succ, err].concat(argv);
+
+            const PluginFunction: Function = Instance[func];
+            PluginFunction.call(this, ...argv);
+
+            function succ(msg: any): void
+            {
+                resolve(msg);
+            }
+
+            function err(msg: any): void
+            {
+                if (TypeInfo.IsString(msg))
+                {
+                    console.warn('cordova plugin error: ' + msg);
+                    reject(new ECordovaPlugin(msg));
+                }
+                else if (msg instanceof Error)
+                {
+                    console.warn('cordova plugin error: ' + msg.message + ' error class: ' + typeof msg);
+                    reject(msg);
+                }
+            }
+        });
+    }
+
+    static async CallbackToPromise_LeftParam<T>(func: string, ...argv: any[]): Promise<T>
+    {
+        const Instance = await this.InstancePromise<any>();
+        const PluginFunction: Function = Instance[func];
+
+        return new Promise<T>((resolve, reject) =>
+        {
+            argv.push(succ, err);
+            PluginFunction.call(this, ...argv);
+
+            function succ(msg: any): void
+            {
+                resolve(msg);
+            }
+
+            function err(msg: any): void
+            {
+                if (TypeInfo.IsString(msg))
+                {
+                    console.warn('cordova plugin error: ' + msg);
+                    reject(new ECordovaPlugin(msg));
+                }
+                else if (msg instanceof Error)
+                {
+                    console.warn('cordova plugin error: ' + msg.message + ' error class: ' + typeof msg);
+                    reject(msg);
+                }
+            }
+        });
+    }
+
+    private static _Instance: any = undefined;
+
+    protected constructor()
+    {
+        super();
+    }
+}

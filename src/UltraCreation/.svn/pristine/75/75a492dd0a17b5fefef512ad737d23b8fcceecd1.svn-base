@@ -1,0 +1,32 @@
+/**
+ *  https://github.com/apache/cordova-plugin-splashscreen
+ *      cordova plugin add cordova-plugin-splashscreen --save
+ */
+import {TypeInfo} from '../Core/TypeInfo';
+
+declare var navigator: any;
+
+export class SplashScreen
+{
+    static show(): void
+    {
+        if (! TypeInfo.Assigned(navigator.splashscreen))
+        {
+            console.error('SplashScreen Plugin not Installed.');
+            return;
+        }
+
+        navigator.splashscreen.show();
+    }
+
+    static hide(): void
+    {
+        if (! TypeInfo.Assigned(navigator.splashscreen))
+        {
+            console.error('SplashScreen Plugin not Installed.');
+            return;
+        }
+
+        navigator.splashscreen.hide();
+    }
+}

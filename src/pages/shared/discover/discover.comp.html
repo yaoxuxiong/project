@@ -1,0 +1,40 @@
+<div style="margin-top:58px;margin-left:0;margin-right:0;" margin>
+    <ul *ngIf="PeripheralList.length>0" class="device-list">
+        <li style="background:#EEF6FF" *ngFor="let peri of PeripheralList" (click)="SelectionDevice(peri);$event.stopPropagation()" tappable>
+            <ion-row align-items-center no-margin>
+                <ion-col padding col-6>
+                    <span f-1-6 text-light>{{peri.ProductName}} {{peri.Ver}}</span>
+                </ion-col>
+                <ion-col padding text-right col-4 style="padding-right:0;">
+                    <ion-icon app-icon f-1-4 *ngIf="peri.Status.RSSI<-100">&#xe921;</ion-icon>
+                    <ion-icon app-icon f-1-4 *ngIf="peri.Status.RSSI<-90&&peri.Status.RSSI>=-100">&#xe920;</ion-icon>
+                    <ion-icon app-icon f-1-4 *ngIf="peri.Status.RSSI<-80&&peri.Status.RSSI>=-90">&#xe922;</ion-icon>
+                    <ion-icon app-icon f-1-4 *ngIf="peri.Status.RSSI<-70&&peri.Status.RSSI>=-80">&#xe923;</ion-icon>
+                    <ion-icon app-icon f-1-4 *ngIf="peri.Status.RSSI>=-70">&#xe924;</ion-icon>
+                </ion-col>
+                <ion-col padding text-right col-1>
+                    <ion-icon *ngIf="peri.Status.BatteryLevel<2450" app-icon f-1-6 text-light>&#xe919;</ion-icon>
+                    <ion-icon *ngIf="peri.Status.BatteryLevel>=2450&&peri.Status.BatteryLevel<2600" app-icon f-1-6 text-light>&#xe91c;</ion-icon>
+                    <ion-icon *ngIf="peri.Status.BatteryLevel>=2600&&peri.Status.BatteryLevel<2800" app-icon f-1-6 text-light>&#xe91d;</ion-icon>
+                    <ion-icon *ngIf="peri.Status.BatteryLevel>=2800&&peri.Status.BatteryLevel<2900" app-icon f-1-6 text-light>&#xe911;</ion-icon>
+                    <ion-icon *ngIf="peri.Status.BatteryLevel>=2900" app-icon f-1-6 text-light>&#xe91e;</ion-icon>
+                </ion-col>
+                <ion-col no-padding col-12>
+                    <div [class.border-dark]="Index != PeripheralList.length -1"></div>
+                </ion-col>
+            </ion-row>
+        </li>
+        <!-- <li style="background:#EEF6FF" (click)="$event.stopPropagation()" tappable>
+            <ion-row align-items-center no-margin>
+                <ion-col padding col-6>
+                    <span f-1-6 text-light>{{'hint.wifi_discover'|translate}}</span>
+                </ion-col>
+            </ion-row>
+        </li> -->
+    </ul>
+    <ul *ngIf="PeripheralList.length===0" class="device-list">
+        <li no-margin padding>
+            <span text-light f-1-6>{{'hint.open_device'|translate}}</span>
+        </li>
+    </ul>
+</div>

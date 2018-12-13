@@ -1,0 +1,81 @@
+import {TypeInfo} from '../../UltraCreation/Core/TypeInfo';
+import {TGuid} from '../../UltraCreation/Core/Guid';
+import {DateUtils} from '../../UltraCreation/Core/DateUtils';
+import {IPersistable, TPersistable, TPersistRule, IBeforePersist, IBeforeInsert} from '../../UltraCreation/Core/Persistable';
+
+/* TAsset */
+
+export interface IAsset extends IPersistable
+{
+    Id: string | null;
+
+    Name: string | null;
+    Desc: string | null;
+}
+
+export class TAsset extends TPersistable implements IAsset, IBeforePersist, IBeforeInsert
+{
+    constructor(public ObjectName: string)
+    {
+        super();
+
+        // create hidden ExtraProp
+        (this as any)['ExtraProp'] = null;
+    }
+
+    Id: string | null = null;
+    Name: string | null = null;
+    Owner: string | null = '';
+    Desc: string | null = null;
+    Timestamp: Date | null = null;
+
+    ExtraProps: Map<string, any> | any = new Map<string, any>();
+
+/* TAssignable */
+
+    protected AfterAssignProperties(): void
+    {
+        super.AfterAssignProperties();
+
+        const ExtraProp = (this as any)['ExtraProp'];
+        if (TypeInfo.Assigned(ExtraProp))
+        try
+        {
+            const ary: Array<[string, any]> = JSON.parse(ExtraProp);
+            ary.forEach(iter => this.ExtraProps.set(iter[0], iter[1]));
+        }
+        catch (e)
+        {
+            console.error('unable to parse ExtraProp: ' + ExtraProp);
+        }
+
+        // correction SQL query Date type
+        if (TypeInfo.IsString(this.Timestamp))
+            this.Timestamp = DateUtils.FromISO8601(this.Timestamp + 'Z');
+    }
+
+/* TPersistable */
+
+    DefineRules(Rules: Array<TPersistRule>): void
+    {
+        super.DefineRules(Rules);
+
+        Rules.push(new TPersistRule('Asset',
+            ['Id'], ['ObjectName', 'Name', 'Desc', 'ExtraProp', 'Owner']));
+    }
+
+    async BeforePersist(): Promise<void>
+    {
+        if (this.ExtraProps.size > 0)
+        {
+            const ary = Array.from(this.ExtraProps);
+            (this as any).ExtraProp = JSON.stringify(ary);
+        }
+    }
+
+    async BeforeInsert(): Promise<void>
+    {
+        if (! TypeInfo.Assigned(this.Id))
+            this.Id = TGuid.Generate();
+    }
+}

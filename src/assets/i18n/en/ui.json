@@ -1,0 +1,99 @@
+{
+    "hint":
+    {
+        "back_twice_exit": "Press Back twice to Exit",
+
+        "low_battery": "Battery is very low please replace it",
+        "network_unavailable": "Network unavailable",
+
+        "open_ble": "Bluetooth activation failed, please go to your settings and turn it on manually",
+        "open_device": "Turn on the Device",
+        "wifi_discover": "Wifi Sharing",
+        "disconnected": "Connection with Device was lost",
+
+        "wrong_email_form": "Your email address format is not correct",
+        "password_not_match": "Please check your password confirmation",
+        "password_shorter_than6": "Your password must include at least 6 characters",
+        "missing_fields": "Please fill in all the fields",
+
+        "e_ble_plugin": "BLE device error",
+        "e_connect_timeout": "Connect timeout",
+        "e_full_space": "Device memory full",
+        "e_invalid_file": "Invalid file",
+        "e_ota_failure": "Firmware upgrade failure",
+        "e_request_timeout": "Request timeout"
+    },
+
+    "calendar":
+    {
+        "week_names": ["M", "T", "W", "T", "F", "S", "S"],
+        "month_names": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    },
+
+    "button":
+    {
+        "ok": "Ok",
+        "save": "Save"
+    },
+
+    "home_page":
+    {
+        "monitor": "Monitor",
+        "medicine": "Medicine",
+        "calendar": "Calendarsadfadf"
+    },
+
+    "setting_page":
+    {
+        "temperature_unit": "Temperature Unit",
+        "title": "setting"
+    },
+
+    "login_page":
+    {
+        "title": "login"
+    },
+
+    "profile_page":
+    {
+        "title": "Profile",
+        "avatar": "Avatar",
+        "nickname": "Nick name",
+        "nickname_placeholder": "input nick name here",
+        "default_nickname": "Default"
+    },
+
+    "select_profile_page":
+    {
+        "add": "New Profile"
+    },
+
+    "device_page":
+    {
+        "explain": "about 1s until the single LED flash in Blue indicates power is on",
+        "explainsta": "press the device button"
+    },
+
+    "record_page":
+    {
+        "hig": "Hightest",
+        "start_hint": "Press the 'Start' button to record the data of one cycle",
+        "start": "Start",
+        "stop": "Stop",
+        "hour": "hour",
+        "min": "min"
+    },
+
+    "medicine_page":
+    {
+    },
+
+    "medicine_add_page":
+    {
+        "title": "Add Notification",
+        "save": "Save",
+        "start": "Start Time",
+        "end": "End Time",
+        "freq": "Freuency"
+    }
+}

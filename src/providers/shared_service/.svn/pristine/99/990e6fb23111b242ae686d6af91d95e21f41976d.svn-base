@@ -1,0 +1,596 @@
+import {Subject} from 'rxjs/Subject';
+import {TypeInfo} from '../../UltraCreation/Core/TypeInfo';
+import {ENotImplemented} from '../../UltraCreation/Core/Exception';
+import {HexConv} from '../../UltraCreation/Core/Conv';
+import {TStream} from '../../UltraCreation/Core/Stream';
+import {TUtf8Encoding} from '../../UltraCreation/Encoding/Utf8';
+
+import {TAsset} from './asset.types';
+import {TLV, VALUE_TYPE} from './tlv.types';
+
+export const PERIPHERAL_TIMEOUT = 10000;
+const ULTRACREATION_AD_FLAG = 0xFFBC;
+
+export enum TAdType
+{
+    BLE,
+    UniversalPnP,
+    LocalPnP
+}
+
+/* TPeripheral */
+
+export class TPeripheral extends TAsset
+{
+    static ClassName: string = '';
+    static ProductName: string = '';
+
+    static AdName: string[] = [];       // peripheral discover adversting name(s)
+    static AdNameExpr?: RegExp;         // discover RegExpr adversting..
+    static AdFlag = ULTRACREATION_AD_FLAG;
+
+    static IsImaginative = false;       // peripheral is pure imaginative no physically exist
+    static IsVisible = true;            // peripheral is visiable to discover UI
+
+    static AdType = new Set<TAdType>([TAdType.BLE]);
+
+    // Plug and Play like USB
+    static LocalPnP(): TPeripheral | undefined
+    {
+        return undefined;
+    }
+
+/* Instance */
+    constructor()
+    {
+        super('');
+
+        const Type = (this.constructor as typeof TPeripheral);
+
+        this.ObjectName = 'Peripheral.' + Type.ClassName;
+        this.Name = Type.ProductName;
+    }
+
+    get IsImaginative()
+    {
+        return (this.constructor as typeof TPeripheral).IsImaginative;
+    }
+
+    get IsVisible()
+    {
+        return (this.constructor as typeof TPeripheral).IsVisible;
+    }
+
+    get IsObjectSaved()
+    {
+        return TypeInfo.Assigned(this.Timestamp);
+    }
+
+    get Icon_Id(): number
+    {
+        return this.ExtraProps.get('Icon');
+    }
+
+    get ValueList(): Array<TLV>
+    {
+        return Array.from(this.ValueHash.values());
+    }
+
+    /**
+     *  fill testing data when IsDevMode()
+     */
+    DevTest(): void
+    {
+        this.Status.RSSI = Math.trunc(Math.random() * 100);
+        this.LastActivity = new Date().getTime();
+    }
+
+    Value(): TLV | undefined;
+    Value(Type: number): TLV | undefined;
+    Value(Type?: number): TLV | undefined
+    {
+        if (TypeInfo.Assigned(Type))
+            return this.ValueHash.get(Type);
+        else
+            return undefined;
+    }
+
+    // called from disover service
+    SignalUpdate(IsOnline: boolean, RSSI: number | undefined)
+    {
+        this.Status.IsOnline = IsOnline;
+        this.Status.RSSI = RSSI;
+
+        if (! IsOnline)
+        {
+            PeripheralFactory.UpdateAggregate(this, []);
+            // notify disconnect
+            this.OnValueUpdate.next(null);
+        }
+    }
+
+    UpdateTLValues(ValueList: Array<TLV>, ...args: any[]): Array<TLV>
+    {
+        const Updated: Array<TLV> = [];
+        for (const iter of ValueList)
+        {
+            // try parse TLV value
+            const Value = iter.valueOf();
+            if (! TypeInfo.Assigned(Value))
+                continue;
+
+            const OldValue = this.ValueHash.get(iter.Type);
+            if (! TypeInfo.Assigned(OldValue))
+            {
+                this.ValueHash.set(iter.Type, iter);
+
+                this.UpdateValue(iter);
+                Updated.push(iter);
+            }
+            else if (TypeInfo.Assigned(iter.Timestamp))
+            {
+                if (iter.Timestamp !== OldValue.Timestamp || OldValue.valueOf() !== Value)
+                {
+                    this.ValueHash.set(iter.Type, iter);
+
+                    this.UpdateValue(iter);
+                    Updated.push(iter);
+                }
+            }
+            else
+            {
+                if (OldValue.valueOf() !== Value)
+                {
+                    this.ValueHash.set(iter.Type, iter);
+
+                    this.UpdateValue(iter);
+                    Updated.push(iter);
+                }
+            }
+        }
+
+        return Updated;
+    }
+
+    protected UpdateValue(v: TLV, ...args: any[]): void
+    {
+        switch (v.Type)
+        {
+        case VALUE_TYPE.BATTERY:
+            this.Status.BatteryLevel = v.valueOf();
+            console.log('battery: ' + this.Status.BatteryLevel);
+            return;
+
+        case VALUE_TYPE.IDENTIFY:
+            this.OnIdentify.next();
+            return;
+
+        default:
+            setTimeout(() => this.OnValueUpdate.next(v));
+            return;
+        }
+    }
+
+    async Repack(Stream: TStream): Promise<void>
+    {
+        /*
+        await Stream.WriteUint16((this.constructor as typeof TPeripheral).AdFlag);
+        await Stream.WriteUint16(this.Version);
+        await Stream.WriteUint24(parseInt(this.Id, 16) % 16777216);
+
+        let values = this.ValueHash.values();
+        for (let iter = values.next(); ! iter.done; iter = values.next())
+            await iter.value.Encode(Stream);
+        */
+    }
+
+    Version: number;
+    LastActivity = new Date().getTime();
+
+    ValueHash = new Map<number, TLV>();
+    Status = new TPeripheralStatus();
+
+    OnIdentify = new Subject<void>();
+    OnValueUpdate = new Subject<TLV | null>();
+}
+
+/* TPeripheralStatus */
+
+export class TPeripheralStatus
+{
+    IsOnline?: boolean;
+    IsPnP?: boolean;
+    RSSI?: number;
+    BatteryLevel?: number;
+}
+
+/* TAggregatePeripheral */
+
+export abstract class TAggregatePeripheral extends TPeripheral
+{
+    static AggregateType: typeof TPeripheral;
+    static AggregatedTimeout = PERIPHERAL_TIMEOUT;
+    /// @override: the aggregate peripheral usually to be pure imaginative
+    static IsImaginative = true;
+
+/* Instance */
+    /// @override & overload: aggregate peripheral can only aggregate persistent types
+    UpdateTLValues(ValueList: Array<TLV>, Ref: TPeripheral): Array<TLV>
+    {
+        const Now = new Date().getTime();
+        const AggregatedTimeout = (this.constructor as typeof TAggregatePeripheral).AggregatedTimeout;
+
+        this.Refs.add(Ref);
+        // remove discover timeouts
+        const Timeouts: Array<TPeripheral> = [];
+        this.Refs.forEach(Iter =>
+        {
+            if (AggregatedTimeout > 0 && Now - Iter.LastActivity > AggregatedTimeout)
+                Timeouts.push(Iter);
+        });
+        for (const Iter of Timeouts)
+            this.Refs.delete(Iter);
+
+        if (ValueList.length > 0)
+        {
+            for (const v of ValueList)
+                this.UpdateValue(v, Ref, Now, Timeouts);
+        }
+        else
+            this.UpdateValue(null, Ref, Now, Timeouts);
+
+        return ValueList;
+    }
+
+    /// @override: derived class must to implements to update OnAggregateUpdate && OnValueChanged subject
+    protected abstract UpdateValue(v: TLV | null, Ref: TPeripheral, Now: number, Timeouts: Array<TPeripheral>): void;
+
+    protected Refs = new Set<TPeripheral>();
+    OnAggregateUpdate = new Subject<any>();
+}
+
+/* TConnectablePeripheral */
+
+export abstract class TConnectablePeripheral extends TPeripheral
+{
+    abstract get Shell(): any
+
+    get ConnectId(): string
+    {
+        return this.ExtraProps.get('ConnectId');
+    }
+
+    set ConnectId(v: string)
+    {
+        this.ExtraProps.set('ConnectId', v);
+    }
+}
+
+/* TProxyPeripheral */
+
+export abstract class TProxyPeripheral extends TConnectablePeripheral
+{
+    ProxyTo: TPeripheral;
+}
+
+/* PeripheralFactory */
+
+export class PeripheralFactory
+{
+    static Register(PeripheralClass: typeof TPeripheral)
+    {
+        if (! TypeInfo.Assigned(PeripheralClass.ClassName) || PeripheralClass.ClassName === '')
+            throw new ENotImplemented('Peripheral must implement the ClassName');
+
+        const ObjectName = 'Peripheral.' + PeripheralClass.ClassName;
+        this.Repository.set(ObjectName, PeripheralClass);
+
+        console.log('PeripheralFactory: ' + ObjectName + ' registered');
+    }
+
+    static GetCached(Id: string): TPeripheral | undefined
+    {
+        return this.Cached.get(Id);
+    }
+
+    static Cache(Peripheral: TPeripheral): void
+    {
+        if (TypeInfo.Assigned(Peripheral.Id))
+        {
+            this.Cached.set(Peripheral.Id, Peripheral);
+
+            if (Peripheral instanceof TAggregatePeripheral)
+                this.CachedAggregate.push(Peripheral);
+        }
+    }
+
+    static Uncache(Id: string): boolean;
+    static Uncache(Peripheral: TPeripheral): boolean;
+    static Uncache(Peripheral: TPeripheral | string): boolean
+    {
+        if (TypeInfo.IsString(Peripheral))
+            return this.Cached.delete(Peripheral);
+        else if (TypeInfo.Assigned(Peripheral.Id))
+            return this.Cached.delete(Peripheral.Id);
+        else
+            return false;
+    }
+
+    static ExistsClass(Cls: typeof TPeripheral): boolean;
+    static ExistsClass(ClassName: string): boolean;
+    static ExistsClass(NameOrCls: string | typeof TPeripheral): boolean
+    {
+        let PeripheralClass: typeof TPeripheral | undefined;
+        if (TypeInfo.IsString(NameOrCls))
+            PeripheralClass = this.Repository.get('Peripheral.' + NameOrCls);
+        else
+            PeripheralClass = NameOrCls;
+
+        return TypeInfo.Assigned(PeripheralClass) && this.CachedClass.has(PeripheralClass);
+    }
+
+    /** Get a Peripheral, Create and Caching when not found Id */
+    static Get(Id: string, Cls: typeof TPeripheral): any | undefined;
+    static Get<T extends TPeripheral>(Id: string, ObjectName: string): T | undefined;
+    static Get<T extends TPeripheral>(Id: string, NameOrCls: string | typeof TPeripheral): T | undefined
+    {
+        let Obj = this.Cached.get(Id);
+
+        if (! TypeInfo.Assigned(Obj))
+        {
+            let ObjectName = '';
+            if (TypeInfo.IsString(NameOrCls))
+                ObjectName = NameOrCls;
+            else
+                ObjectName = 'Peripheral.' + NameOrCls.ClassName;
+
+            const PeripheralClass = this.Repository.get(ObjectName);
+
+            if (TypeInfo.Assigned(PeripheralClass))
+            {
+                Obj = new PeripheralClass();
+                Obj.Id = Id;
+                Obj.Name = PeripheralClass.ProductName;
+
+                this.Cache(Obj);
+                this.CachedClass.add(PeripheralClass);
+            }
+            else
+                Obj = undefined;
+        }
+
+        return Obj as T;
+    }
+
+    /** Has BLE Peripheral need to discover? */
+    static get HasBLE(): boolean
+    {
+        const Repository = PeripheralFactory.Repository.entries();
+        for (let Iter = Repository.next(); ! Iter.done; Iter = Repository.next())
+        {
+            const PeripheralClass = Iter.value[1] as (typeof TPeripheral);
+
+            if (PeripheralClass.AdType.has(TAdType.BLE))
+                return true;
+        }
+
+        return false;
+    }
+
+    /** Has Universal Plug and Play Peripheral need to discover? */
+    static get HasUniversalPnP(): boolean
+    {
+        const Repository = PeripheralFactory.Repository.entries();
+        for (let Iter = Repository.next(); ! Iter.done; Iter = Repository.next())
+        {
+            const PeripheralClass = Iter.value[1] as (typeof TPeripheral);
+
+            if (PeripheralClass.AdType.has(TAdType.UniversalPnP))
+                return true;
+        }
+
+        return false;
+    }
+
+    /** AdNames for BLE and UniversalPnP */
+    static get AdNames(): string[]
+    {
+        let RetVal: string[] = [];
+
+        const Repository = PeripheralFactory.Repository.values();
+        for (let Iter = Repository.next(); ! Iter.done; Iter = Repository.next())
+        {
+            const PeripheralClass = Iter.value as (typeof TPeripheral);
+            RetVal = RetVal.concat(PeripheralClass.AdName);
+        }
+        return RetVal;
+    }
+
+    /** Get a Perpherial from BLE Adversting */
+    static GetFromBLE(AdName: string, data: Uint8Array, ScanId: string): TPeripheral | undefined
+    {
+        let ad = 0;
+        let ver = 0;
+        let id: string = ScanId;
+
+        const NameWithCase = AdName;
+        AdName = AdName.toLowerCase();
+
+        if (TypeInfo.Assigned(data) && data.byteLength >= 7)
+        {
+            // manufactory AD type
+            ad = data[0] * 256 + data[1];
+
+            if (ad === ULTRACREATION_AD_FLAG)
+            {
+                // firmware version
+                ver = data[2] * 256 + data[3];
+
+                // device'id 08:7C:BE:92:C0:94
+                // id = (data[4] * 65536 + data[5] * 256 + data[6]).toString(16);
+                id = ('08:7C:BE:' +  HexConv.IntToHex(data[4], 2) + ':' + HexConv.IntToHex(data[5], 2) + ':' +
+                    HexConv.IntToHex(data[6], 2)).toUpperCase();
+            }
+            else
+            {
+                ad = 0;
+                // old compatible
+                id = (HexConv.IntToHex(data[5], 2) + ':' + HexConv.IntToHex(data[4], 2) + ':' + HexConv.IntToHex(data[3], 2)
+                    + ':' + HexConv.IntToHex(data[2], 2) + ':' + HexConv.IntToHex(data[1], 2) + ':' + HexConv.IntToHex(data[0], 2)).toUpperCase();
+
+                const start_idx = 6;
+                let idx = start_idx;
+                for (; idx < data.byteLength; idx ++)
+                {
+                    if (data[idx] === 0)
+                        break;
+                }
+
+                const view = new Uint8Array(data.buffer, data.byteOffset + start_idx, idx - start_idx);
+                try
+                {
+                    const Name = TUtf8Encoding.Decode(view).toLowerCase();
+                    if (TypeInfo.Assigned(Name) && Name.length > 0)
+                        AdName = Name;
+                }
+                catch (err)
+                {
+                    return undefined;
+                }
+            }
+        }
+
+        let Peripheral = this.Cached.get(id);
+        if (id !== ScanId)
+        {
+            if (! TypeInfo.Assigned(Peripheral))
+                Peripheral = this.Cached.get(ScanId);
+        }
+
+        if (! TypeInfo.Assigned(Peripheral))
+        {
+            const Repository = PeripheralFactory.Repository.entries();
+            for (let Iter = Repository.next(); ! Iter.done; Iter = Repository.next())
+            {
+                const PeripheralClass = Iter.value[1] as (typeof TPeripheral);
+                if (0 !== ad && PeripheralClass.AdFlag !== ad)
+                    continue;
+
+                if ((PeripheralClass.AdName.indexOf(AdName) !== -1) ||
+                    (TypeInfo.Assigned(PeripheralClass.AdNameExpr) && AdName.match(PeripheralClass.AdNameExpr)))
+                {
+                    Peripheral = new PeripheralClass();
+                    Peripheral.Id = id;
+                    Peripheral.Name = PeripheralClass.ProductName;
+
+                    this.Cache(Peripheral);
+                    this.CachedClass.add(PeripheralClass);
+                }
+            }
+        }
+
+        if (TypeInfo.Assigned(Peripheral))
+        {
+            if (Peripheral.Id !== id)
+            {
+                console.log('re-cache new: ' + id + ' old: ' + Peripheral.Id);
+                Peripheral.Id = id;
+                this.Cache(Peripheral);
+            }
+            Peripheral.Version = ver;
+            Peripheral.LastActivity = new Date().getTime();
+
+            if (ver === 0)
+                Peripheral.Name = NameWithCase;
+
+            if (Peripheral instanceof TConnectablePeripheral)
+            {
+                if (Peripheral.ConnectId !== ScanId)
+                {
+                    // for share from android <--> ios
+                    //  the ConnectId is changed due to ScanId is different
+                    //  set Timestamp to null to force discover service to store object again
+                    Peripheral.Timestamp = null;
+                }
+                Peripheral.ConnectId = ScanId;
+            }
+
+            if (TypeInfo.Assigned(data) && data.byteLength > 7)
+            {
+                const Updated = Peripheral.UpdateTLValues(TLV.DecodeFrom(data, 7, 1, 1));
+                if (Updated.length > 0)
+                    this.UpdateAggregate(Peripheral, Updated);
+            }
+
+            return Peripheral;
+        }
+        else
+            return undefined;
+    }
+
+    static GetFromSocket(Id: string, Addr: string, AdName?: string): TPeripheral | undefined
+    {
+        let Peripheral = this.Cached.get(Id);
+        if (! TypeInfo.Assigned(Peripheral))
+        {
+            const Repository = PeripheralFactory.Repository.entries();
+            for (let Iter = Repository.next(); ! Iter.done; Iter = Repository.next())
+            {
+                const PeripheralClass = Iter.value[1] as (typeof TPeripheral);
+
+                if ((PeripheralClass.AdName.indexOf(AdName) !== -1) ||
+                    (TypeInfo.Assigned(PeripheralClass.AdNameExpr) && AdName.toLowerCase().match(PeripheralClass.AdNameExpr)))
+                {
+                    Peripheral = new PeripheralClass();
+                    Peripheral.Id = Id;
+                    Peripheral.Name = PeripheralClass.ProductName;
+
+                    this.Cache(Peripheral);
+                    this.CachedClass.add(PeripheralClass);
+                }
+            }
+        }
+
+        if (TypeInfo.Assigned(Peripheral))
+        {
+            (Peripheral as TConnectablePeripheral).ConnectId = Addr;
+            Peripheral.LastActivity = new Date().getTime();
+        }
+
+        return Peripheral;
+    }
+
+    /** Locally Plug and Play Peripheral like USB */
+    static GetFromLocalPnP(): TPeripheral | undefined
+    {
+        const Repository = PeripheralFactory.Repository.entries();
+        for (let Iter = Repository.next(); ! Iter.done; Iter = Repository.next())
+        {
+            const PeripheralClass = Iter.value[1] as (typeof TPeripheral);
+
+            const Peri = PeripheralClass.LocalPnP();
+            if (TypeInfo.Assigned(Peri))
+                return Peri;
+        }
+
+        return undefined;
+    }
+
+    static UpdateAggregate(Ref: TPeripheral, ValueList: Array<TLV>)
+    {
+        const Type = Ref.constructor as typeof TPeripheral;
+        this.CachedAggregate.forEach(Iter =>
+        {
+            const AggregateType = Iter.constructor as typeof TAggregatePeripheral;
+
+            if (AggregateType.AggregateType === Type)
+                Iter.UpdateTLValues(ValueList, Ref);
+        });
+    }
+
+    private static Cached = new Map<string, TPeripheral>();
+    private static CachedAggregate = new Array<TAggregatePeripheral>();
+    private static CachedClass = new Set<typeof TPeripheral>();
+
+    static Repository = new Map<string, typeof TPeripheral>();
+}

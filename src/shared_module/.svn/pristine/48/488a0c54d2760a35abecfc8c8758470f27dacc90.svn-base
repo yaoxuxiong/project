@@ -1,0 +1,35 @@
+<ion-header>
+    <ion-toolbar>
+        <ion-row class="header_box">
+            <ion-col (click)="App.Nav.pop()" text-center col-2><ion-icon>&#xe940;</ion-icon></ion-col>
+        </ion-row>
+    </ion-toolbar>
+</ion-header>
+<ion-content>
+    <div class="login_content">
+        <div class="login_title">Sign up</div>
+        <div class="login_inp_box">
+            <!-- <div>
+                <input type="text" placeholder="Username" [(ngModel)]="UserName">
+            </div> -->
+            <div>
+                <input type="text" placeholder="Email" [(ngModel)]="Email">
+            </div>
+            <div>
+                <input type="password" placeholder="Password" [(ngModel)]="Pwd">
+            </div>
+            <div>
+                <input type="password" placeholder="Confirm Password" [(ngModel)]="ComfirmPwd">
+            </div>
+        </div>
+        <ion-row>
+            <ion-col style="margin-top:1.5rem;" no-padding>
+                <button (click)="Submit()" style="background:#55A9FF;color:#fff; border-radius:5px;" no-padding ion-button full>Register</button>
+            </ion-col>
+        </ion-row>
+        <div class="register_foot_text">
+            <p>I already have an account. Login</p>
+            <span>Terms of Service</span>
+        </div>
+    </div>
+</ion-content>

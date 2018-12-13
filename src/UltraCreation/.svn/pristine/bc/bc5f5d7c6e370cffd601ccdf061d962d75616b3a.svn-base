@@ -1,0 +1,132 @@
+/**
+ *  Cordova Plugins Abstract
+ *      npm i @types/cordova -D
+ */
+// import 'cordova';
+import {TypeInfo} from '../Core/TypeInfo';
+import {EAbort} from '../Core/Exception';
+
+declare var window: any;
+
+export type TSuccessfulCallback = (msg?: any) => void;
+export type TFailureCallback = (msg?: any) => void;
+
+export type TPluginFunction = (...argv: any[]) => void;
+
+export class TCordovaPluginStatic
+{
+    static readonly Name: string = '';
+    static readonly Repository?: string;
+}
+
+export class ECordovaPlugin extends EAbort
+{
+    constructor(msg?: string)
+    {
+        if (TypeInfo.Assigned(msg))
+            super(msg);
+        else
+            super('e_cordova_plugin');
+    }
+}
+
+export class ECordovaPluginNotInstalled extends ECordovaPlugin
+{
+    constructor()
+    {
+        super('e_cordova_plugin_not_installed');
+    }
+}
+
+export class TCordovaPlugin extends TCordovaPluginStatic
+{
+    static RequirePlugin<T>(PluginName: string): T
+    {
+        if (! TypeInfo.Assigned(window.cordova))
+        {
+            console.error('cordova platform is not ready...');
+            return undefined;
+        }
+
+        const Plugin = window[PluginName];
+        if (TypeInfo.Assigned(Plugin))
+            return Plugin;
+        else
+            return window.cordova.plugins[PluginName];
+    }
+
+    static Instance<T>(): T
+    {
+        if (! TypeInfo.Assigned(this._Instance))
+        {
+            if (! TypeInfo.Assigned(window.cordova))
+            {
+                console.error('cordova platform is not ready...');
+                return undefined;
+            }
+
+            if (this.Name === '')
+            {
+                console.error(this.name.toString() + ' has no Name defined.');
+                return undefined;
+            }
+
+            this._Instance = this.RequirePlugin(this.Name);
+
+            if (! TypeInfo.Assigned(this._Instance))
+            {
+                if (TypeInfo.Assigned(this.Repository))
+                    console.warn(this.Repository + ' is not installed.');
+                else
+                    console.warn('cordova plugin: ' + this.Name + ' is not installed.');
+            }
+        }
+
+        return this._Instance;
+    }
+
+    static get IsPluginInstalled(): boolean
+    {
+        return TypeInfo.Assigned(this.Instance());
+    }
+
+    static CallbackToPromise<T>(func: string, ...argv: any[]): Promise<T>
+    {
+        const Instance = this.Instance<any>();
+        if (! TypeInfo.Assigned(Instance))
+            return Promise.reject(new ECordovaPluginNotInstalled());
+        const PluginFunction: Function = Instance[func];
+
+        return new Promise((resolve, reject) =>
+        {
+            argv.push(succ, err);
+            PluginFunction.call(this, ...argv);
+
+            function succ(msg: any): void
+            {
+                resolve(msg);
+            }
+
+            function err(msg: any): void
+            {
+                if (TypeInfo.IsString(msg))
+                {
+                    console.warn('cordova plugin error: ' + msg);
+                    reject(new ECordovaPlugin(msg));
+                }
+                else if (msg instanceof Error)
+                {
+                    console.warn('cordova plugin error: ' + msg.message + ' error class: ' + typeof msg);
+                    reject(msg);
+                }
+            }
+        });
+    }
+
+    protected constructor()
+    {
+        super();
+    }
+
+    private static _Instance: any = undefined;
+}

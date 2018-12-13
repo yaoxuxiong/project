@@ -1,0 +1,63 @@
+/*
+ * Native Phone Call Trapper support
+ *      cordova plugin add cordova-plugin-app-version --save
+ */
+import {TypeInfo} from '../Core/TypeInfo';
+
+export class AppVersion
+{
+    static getAppName(): Promise<string>
+    {
+        return new Promise<string>((resolve, reject) =>
+        {
+            if (this.IsPluginInstalled())
+                this.Plugin.getAppName((name: string) => resolve(name));
+            else
+                resolve('App Name');
+        });
+    }
+
+    static getPackageName(): Promise<string>
+    {
+        return new Promise<string>((resolve, reject) =>
+        {
+            if (this.IsPluginInstalled())
+                this.Plugin.getPackageName((name: string) => resolve(name));
+            else
+                resolve('Package Name');
+        });
+    }
+
+    static getVersionCode(): Promise<string>
+    {
+        return new Promise<string>((resolve, reject) =>
+        {
+            if (this.IsPluginInstalled())
+                this.Plugin.getVersionCode((code: string) => resolve(code));
+            else
+                resolve('Version Name');
+        });
+    }
+
+    static getVersionNumber(): Promise<string>
+    {
+        return new Promise<string>((resolve, reject) =>
+        {
+            if (this.IsPluginInstalled())
+                this.Plugin.getVersionNumber((num: string) => resolve(num));
+            else
+                resolve('Version Number');
+        });
+    }
+
+    private static IsPluginInstalled(): boolean
+    {
+        return TypeInfo.Assigned((window as any).cordova) &&
+            TypeInfo.Assigned((window as any).cordova.getAppVersion);
+    }
+
+    private static get Plugin(): any
+    {
+        return (window as any).cordova.getAppVersion;
+    }
+}

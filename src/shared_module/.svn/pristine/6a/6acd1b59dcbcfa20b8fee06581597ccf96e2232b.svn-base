@@ -1,0 +1,14 @@
+<ion-content class="userHome_con">
+    <div class="userContent">
+        <div class="userhome_text">
+            <div class="user_text">
+                <p>记录每分钟</p>
+                <p>还原每一秒</p>
+            </div>
+        </div>
+        <div class="userbut_box">
+            <button (click)= "Login()" ion-button>Login</button>
+            <button (click)= "Register()" style="background:#0B1026" ion-button>Sign Up</button>
+        </div>
+    </div>
+</ion-content>

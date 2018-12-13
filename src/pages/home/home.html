@@ -1,0 +1,44 @@
+<ion-header >
+    <!-- <ion-navbar>
+        <div class="header_box">
+            <div class="me" text-center style="flex:1.5; ">
+                <button ion-button menuToggle (click)="OpenMenu()"><ion-icon style="font-size:1.8rem" class="icon-menu"></ion-icon></button>
+            </div>
+            <div (click)='SelectProfile()' class="head-title" text-center style="flex:7">
+                <p *ngIf="Sampling.Profile">{{Sampling.Profile.Name}}</p>
+                <div class="home_trigon_box"></div>
+            </div>
+            <div class="nav" text-center style="flex:1.5" (click)="Settings()">
+                <ion-icon f-2-6 class="icon-setting"></ion-icon>
+            </div>
+        </div>
+    </ion-navbar> -->
+</ion-header>
+
+<ion-menu type="push" [content]="content" show-menu>
+    <discover-peripheral (OnSelectionDevice)="SelectionDevice($event)"></discover-peripheral>
+</ion-menu>
+
+<ion-content #content [ngSwitch]="ActiveTab.Index" color="light">
+    <ion-content class="mon_content" [class.hide]="ActiveTab.Index!==0">
+        <div>table</div>
+        <chart></chart>
+    </ion-content>
+
+    <ion-content *ngSwitchCase="1">
+        <div>dsf</div>
+        <!-- <page-calendar></page-calendar> -->
+    </ion-content>
+
+    <ion-content *ngSwitchCase="2">
+        <!-- <page-medicine></page-medicine> -->
+    </ion-content>
+</ion-content>
+
+<ion-footer no-border>
+    <ion-row class="foot_nav">
+        <ion-col text-center [class.active]="tab.Index===ActiveTab.Index" *ngFor="let tab of Tabs" (click)="SelectTab(tab)" tappable>
+            <ion-icon app-icon [innerHTML]="tab.Icon"></ion-icon>
+        </ion-col>
+    </ion-row>
+</ion-footer>
